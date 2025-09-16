@@ -22,10 +22,13 @@ const loginError = ref('');
 const router = useRouter();
 
 async function login() {
-  if (username.value === '1' && password.value === '1') {
+  console.log('Username:', username.value);
+  console.log('Password:', password.value);
+
+  if (username.value.trim().toLowerCase() === 'admin' && password.value === 'ZJl1224@') {
     // 管理员登录逻辑
     router.push('/admin');
-  } else if (username.value === '2' || username.value === '3') {
+  } else if ((username.value === 'student' && password.value === '1') || (username.value === 'teacher' && password.value === '1')) {
     // 学生或老师登录逻辑
     console.log('AuthCode being sent:', token.value); // 打印授权码
     if (!token.value) {
@@ -39,7 +42,7 @@ async function login() {
       });
 
       // 登录成功后跳转
-      router.push(username.value === '2' ? '/student' : '/teacher');
+      router.push(username.value === 'student' ? '/student' : '/teacher');
     } catch (error) {
       // 提供更详细的错误信息
       loginError.value = error.response?.data?.message || '登录失败，请检查授权码或网络连接';

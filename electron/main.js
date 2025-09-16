@@ -2,14 +2,17 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, globalShortcut } = require('electron') // 确保导入 ipcMain
 const path = require('path')
 const isDev = process.env.NODE_ENV === 'development'
+const { exec } = require('child_process')
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 800,
+      show: true, 
     alwaysOnTop: true, // 置顶
-    transparent: true, // 支持窗口透明
-    frame: true, // 可选，false为无边框
+    transparent: false, // 支持窗口透明
+    frame: false, // 可选，false为无边框
+    skipTaskbar: true, // 设置窗口不显示在任务栏中
   
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -20,10 +23,12 @@ function createWindow() {
 
   // 不自动打开 DevTools
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173')
-    // mainWindow.webContents.openDevTools() // 注释或删除
+    mainWindow.loadURL('http://localhost:5173'); // Vite 默认端口
+    // mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile('dist/index.html')
+    const path = require('path');
+
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
   // 启用内容保护，防录屏
@@ -38,24 +43,24 @@ function createWindow() {
 
   // 注册全局快捷键
   function registerShortcuts() {
-    // Ctrl+A 减少透明度
-    // globalShortcut.register('Control+A', () => {
-    //   const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
-    //   if (win) {
-    //     let op = win.getOpacity();
-    //     op = Math.max(0, op - 0.1);
-    //     win.setOpacity(Number(op.toFixed(2)));
-    //   }
-    // });
-    // // Ctrl+D 增加透明度
-    // globalShortcut.register('Control+D', () => {
-    //   const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
-    //   if (win) {
-    //     let op = win.getOpacity();
-    //     op = Math.min(1, op + 0.1);
-    //     win.setOpacity(Number(op.toFixed(2)));
-    //   }
-    // });
+    // Ctrl+d 减少透明度
+    globalShortcut.register('Control+D', () => {
+      const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+      if (win) {
+        let op = win.getOpacity();
+        op = Math.max(0, op - 0.1);
+        win.setOpacity(Number(op.toFixed(2)));
+      }
+    });
+    // Ctrl+f 增加透明度
+    globalShortcut.register('Control+f', () => {
+      const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+      if (win) {
+        let op = win.getOpacity();
+        op = Math.min(1, op + 0.1);
+        win.setOpacity(Number(op.toFixed(2)));
+      }
+    });
     // Ctrl+R 切换透明度 0 <-> 1
     globalShortcut.register('Control+R', () => {
       const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
@@ -69,12 +74,12 @@ function createWindow() {
       app.quit();
     });
     // 缩小
-    globalShortcut.register('Control+-', () => {
+    globalShortcut.register('Control+1', () => {
       const [w, h] = mainWindow.getSize();
       mainWindow.setSize(Math.max(200, w - 50), Math.max(200, h - 50));
     });
     // 放大
-    globalShortcut.register('Control+Plus', () => {
+    globalShortcut.register('Control+2', () => {
       const [w, h] = mainWindow.getSize();
       mainWindow.setSize(w + 50, h + 50);
     });
@@ -106,6 +111,10 @@ function createWindow() {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
   });
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
 }
 
 // 处理获取屏幕源的 IPC 调用
@@ -122,7 +131,27 @@ ipcMain.handle('get-screen-sources', async () => {
   }
 })
 
-app.whenReady().then(createWindow)
+// 启动 Node.js 服务
+function startServer() {
+  exec('node main.js', { cwd: __dirname + '/../Server' }, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`服务启动失败: ${error.message}`);
+      return;
+    }
+    if (stderr) {
+      console.error(`服务错误输出: ${stderr}`);
+      return;
+    }
+    console.log(`服务启动成功: ${stdout}`);
+  });
+}
+
+app.on('ready', () => {
+  // 启动 Node.js 服务
+  startServer();
+
+  createWindow();
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
@@ -131,3 +160,5 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow()
 })
+
+console.log('Electron 主进程已启动');
